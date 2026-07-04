@@ -71,3 +71,40 @@ class GitHubService:
             "pulls": pulls or [],
             "tree": tree or {},
         }
+
+    async def preview_project(self, url: str) -> dict:
+        parsed = parse_github_url(url)
+        if not parsed:
+            raise ValueError("유효하지 않은 GitHub URL입니다.")
+        owner, repo_name = parsed
+        data = await self.fetch_repo_data(owner, repo_name)
+        repo_info = data.get("repo_info") or {}
+        readme = data.get("readme") or ""
+        pkg = data.get("package_json") or {}
+
+        name = repo_info.get("name") or repo_name.replace("-", " ").title()
+        description = (repo_info.get("description") or "").strip()
+
+        if not description and readme:
+            for line in readme.splitlines():
+                cleaned = line.strip().lstrip("#").strip()
+                if cleaned and not cleaned.startswith("!") and not cleaned.startswith("["):
+                    description = cleaned[:500]
+                    break
+
+        tech_stack: list[str] = []
+        if repo_info.get("language"):
+            tech_stack.append(repo_info["language"])
+        topics = repo_info.get("topics") or []
+        tech_stack.extend(topics[:8])
+        deps = {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}
+        tech_stack.extend(list(deps.keys())[:12])
+        tech_stack = list(dict.fromkeys(tech_stack))
+
+        return {
+            "name": name,
+            "description": description or f"{owner}/{repo_name} GitHub repository",
+            "github_repo": f"https://github.com/{owner}/{repo_name}",
+            "tech_stack": tech_stack,
+            "deploy_url": repo_info.get("homepage") or None,
+        }

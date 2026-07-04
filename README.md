@@ -92,8 +92,16 @@ DATABASE_URL=sqlite:///./data/dkos.db
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+npm run api       # uvicorn --reload, http://localhost:8000
+```
+
+또는:
+
+```bash
 uvicorn src.api.main:app --reload --port 8000
 ```
+
+> API 라우트 추가·수정 후에는 `--reload` 옵션으로 실행하거나 서버를 재시작해야 합니다.
 
 ### 4. AI Gateway
 
@@ -148,6 +156,7 @@ MCP 도구: `list_projects`, `get_project`, `search_documents`, `search_memory`,
 | Endpoint | 설명 |
 |----------|------|
 | `GET/POST /api/v1/projects` | Project CRUD |
+| `POST /api/v1/projects/preview-github` | GitHub URL로 프로젝트 메타 미리보기 |
 | `POST /api/v1/repositories/{id}/sync` | GitHub sync |
 | `POST /api/v1/documents/upload` | Document upload |
 | `GET/POST /api/v1/memory` | Memory management |
@@ -158,6 +167,37 @@ MCP 도구: `list_projects`, `get_project`, `search_documents`, `search_memory`,
 | `GET /api/v1/hermes/status` | Hermes status |
 
 Gateway (`:8787`): `POST /v1/generate`, `POST /v1/stream`, `POST /v1/embeddings`
+
+### 환경 변수 (LLM)
+
+| 키 | 필수 여부 | 용도 |
+|----|-----------|------|
+| `OPENAI_API_KEY` | **필수** | Embedding (`text-embedding-3-small`) |
+| `ANTHROPIC_API_KEY` | **필수** | 문서 요약, GitHub 분석, Reflection, RAG |
+| `GOOGLE_API_KEY` | 선택 | Gateway Gemini 어댑터 (현재 백엔드 미사용) |
+| `PERPLEXITY_API_KEY` | 선택 | Gateway Perplexity 어댑터 (현재 백엔드 미사용) |
+| `GITHUB_TOKEN` | 선택 | GitHub API rate limit 완화 |
+
+---
+
+## 최근 업데이트 (2026-07)
+
+### 추가 기능
+
+| 기능 | 설명 |
+|------|------|
+| **예시 프로젝트 적용** | Project Catalog에서 Goorm Hermes 예시 데이터를 폼에 자동 입력 |
+| **GitHub URL로 프로젝트 생성** | GitHub URL 입력 → README·package.json·언어·topics 분석 후 프로젝트 폼 자동 채움 |
+| **User Guide** | `/guide` — 앱 내 활용 가이드 |
+| **Footer** | 개발연월, 개발자, 기술스택, 프로젝트 개요 |
+| **`npm run api`** | FastAPI 개발 서버 (`--reload` 포함) |
+
+### GitHub URL 프로젝트 생성 흐름
+
+1. Project Catalog → **GitHub URL로 프로젝트 생성** 카드에 URL 입력
+2. `POST /api/v1/projects/preview-github` 호출
+3. 이름·설명·기술 스택·배포 URL 자동 입력
+4. **생성** 클릭 → Repository Sync 백그라운드 실행
 
 ---
 
@@ -177,6 +217,63 @@ Gateway (`:8787`): `POST /v1/generate`, `POST /v1/stream`, `POST /v1/embeddings`
 | **시맨틱 검색** | SQLite 환경에서 pgvector 쿼리 스킵 처리 (`search_service.py`) |
 | **브랜딩** | DKOS → **Goorm Hermes** (사이드바, 타이틀, Footer) |
 | **UI** | Footer(개발정보·기술스택), User Guide 메뉴(`/guide`) 추가 |
+| **405 Method Not Allowed** | `preview-github` API 추가 후 구버전 uvicorn 프로세스가 실행 중이던 문제 → `--reload`로 서버 재시작으로 해결 |
+| **GitHub preview API** | `GitHubService.preview_project()` 및 `POST /api/v1/projects/preview-github` 엔드포인트 추가 |
+
+---
+
+## Vercel 배포 (Frontend)
+
+Goorm Hermes는 **React 프론트엔드 + FastAPI 백엔드 + Node.js AI Gateway** 3계층 구조입니다. Vercel은 **프론트엔드 정적 빌드**에 적합하며, API·Gateway는 별도 호스팅이 필요합니다.
+
+### 1. Vercel에 배포 가능한 것
+
+- `npm run build`로 생성되는 `dist/` (React SPA)
+
+### 2. 별도 호스팅이 필요한 것
+
+| 서비스 | 권장 플랫폼 | 비고 |
+|--------|-------------|------|
+| FastAPI (`:8000`) | [Railway](https://railway.app), [Render](https://render.com), [Fly.io](https://fly.io) | PostgreSQL + pgvector 연동 |
+| AI Gateway (`:8787`) | Railway, Render | API 키 보관 |
+| PostgreSQL | [Neon](https://neon.tech), [Supabase](https://supabase.com), Railway | pgvector 확장 필요 |
+
+### 3. Vercel 프로젝트 설정
+
+1. [vercel.com](https://vercel.com) → GitHub `junsang-dong/goorm-hermes` 연결
+2. **Framework Preset:** Vite
+3. **Build Command:** `npm run build`
+4. **Output Directory:** `dist`
+5. **Environment Variables:**
+
+```
+VITE_API_URL=https://your-api.railway.app
+VITE_GATEWAY_URL=https://your-gateway.railway.app
+```
+
+6. **Rewrites** (`vercel.json` — SPA 라우팅):
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+### 4. 배포 순서 (권장)
+
+```
+1. PostgreSQL (Neon/Supabase) 생성 + pgvector 활성화
+2. FastAPI 배포 → DATABASE_URL, OPENAI_API_KEY, ANTHROPIC_API_KEY 설정
+3. AI Gateway 배포 → OPENAI_API_KEY, ANTHROPIC_API_KEY 설정
+4. Vercel Frontend 배포 → VITE_API_URL, VITE_GATEWAY_URL을 2·3 URL로 설정
+5. FastAPI CORS에 Vercel 도메인 추가 (예: https://goorm-hermes.vercel.app)
+```
+
+### 5. 주의사항
+
+- Vercel **Serverless Functions**로 FastAPI를 대체하려면 추가 어댑터 작업이 필요합니다 (현재 구조는 long-running 서버 전제).
+- SQLite 로컬 DB는 Vercel에서 사용 불가 — 프로덕션은 PostgreSQL 필수.
+- API 키는 Vercel이 아닌 **Gateway/백엔드 서버**에만 설정하세요.
 
 ---
 

@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Project
-from ..schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+from ..schemas import GitHubPreviewRequest, GitHubProjectPreview, ProjectCreate, ProjectResponse, ProjectUpdate
+from ..services.github_service import GitHubService
 from ..services.repository_service import RepositoryService
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -32,6 +33,17 @@ def create_project(data: ProjectCreate, background_tasks: BackgroundTasks, db: S
             background_tasks.add_task(_sync_repo, str(repo.id))
 
     return project
+
+
+@router.post("/preview-github", response_model=GitHubProjectPreview)
+async def preview_from_github(data: GitHubPreviewRequest):
+    svc = GitHubService()
+    try:
+        return await svc.preview_project(data.github_url)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"GitHub 정보를 가져오지 못했습니다: {e}")
 
 
 async def _sync_repo(repo_id: str):

@@ -39,6 +39,18 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GitHubPreviewRequest(BaseModel):
+    github_url: str
+
+
+class GitHubProjectPreview(BaseModel):
+    name: str
+    description: Optional[str] = None
+    github_repo: str
+    tech_stack: List[str] = Field(default_factory=list)
+    deploy_url: Optional[str] = None
+
+
 class RepositoryResponse(BaseModel):
     id: UUID
     project_id: UUID

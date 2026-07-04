@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "gateway": "tsx src/modules/gateway/server/index.ts",
