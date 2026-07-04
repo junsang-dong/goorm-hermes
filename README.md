@@ -8,6 +8,8 @@ React + Vite + FastAPI + PostgreSQL(pgvector) + [Hermes Agent](https://hermes-ag
 
 **Repository:** [github.com/junsang-dong/goorm-hermes](https://github.com/junsang-dong/goorm-hermes)
 
+**개발자 문서:** [docs/](./docs/) — [아키텍처](./docs/architecture.md) · [로컬 개발](./docs/local-development.md) · [프로덕션 배포](./docs/deployment.md) · [환경 변수](./docs/environment-variables.md)
+
 ---
 
 ## 프로젝트 개요
@@ -223,6 +225,8 @@ Gateway (`:8787`): `POST /v1/generate`, `POST /v1/stream`, `POST /v1/embeddings`
 ---
 
 ## Vercel 배포 (Frontend)
+
+> **전체 기능 활성화 가이드:** [docs/deployment.md](./docs/deployment.md) — DB · FastAPI · Gateway · Vercel 연동 단계별 설명
 
 Goorm Hermes는 **React 프론트엔드 + FastAPI 백엔드 + Node.js AI Gateway** 3계층 구조입니다. Vercel은 **프론트엔드 정적 빌드**에 적합하며, API·Gateway는 별도 호스팅이 필요합니다.
 
